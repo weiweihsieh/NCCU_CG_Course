@@ -13,7 +13,6 @@ out vec4 normal;
 out vec3 vertexPos;
 out mat4 viewMatrix;
 
-
 void main () {
 	gl_Position = uProjMatrix * uViewMatrix * uModelMatrix * v_Position;
 	
