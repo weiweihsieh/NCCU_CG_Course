@@ -1,4 +1,3 @@
-
 #include "buttom_handle.hpp"
 #include "renderer.h"
 #include "ogt_vox.h"
@@ -120,10 +119,15 @@ int main(int argc, char** argv) {
     static float_t lightDir[3] = { 1.0f, 1.0f ,-1.0f };
     static const char* selectable[] = { "Constant", "Phong" , "Toon" };
     static int selectItem = 0;
+    //new: coefficients
+    static float_t ka = 0.1f;
+    static float_t kd = 1.0f;
+    static float_t ks = 1.0f;
+    static int shininess = 100;
 
     //create buffer to initial default uniform value which will be used in shader 
-    std::vector<std::string> uniformname = { "u_lightDir"};
-    std::vector<void*> uniformdata = { &lightDir[0]};
+    std::vector<std::string> uniformname = { "u_lightDir", "u_ka", "u_kd", "u_ks", "u_shininess"};
+    std::vector<void*> uniformdata = { &lightDir[0], &ka, &kd, &ks, &shininess};
     uniformConfig uniformInfo(uniformname, uniformdata);
 
     //binding all together
@@ -132,107 +136,123 @@ int main(int argc, char** argv) {
     renderer toon(objModel, toonShader, camera, uniformInfo);
     renderer grid(gridModel , gridShader , camera);
 
-  // Loop until the user closes the window
-  double lasttime = glfwGetTime();
-  while (glfwWindowShouldClose(window) == 0) {
-    gridShader.bindShaderProgram();
-    glUniform1f(gridShader.getShaderUniformLocation("u_width"), window_width);
-    glUniform1f(gridShader.getShaderUniformLocation("u_height"), window_height);
-
-  
-    //listen to mouse state
-    if (mouseEvent) {
-        camera.updateViewMatrix(mouseScroll, mouseMiddle_xoffset, mouseMiddle_yoffset, mouseRight_xoffset, mouseRight_yoffset);
+    // Loop until the user closes the window
+    double lasttime = glfwGetTime();
+    while (glfwWindowShouldClose(window) == 0) {
+        gridShader.bindShaderProgram();
+        glUniform1f(gridShader.getShaderUniformLocation("u_width"), window_width);
+        glUniform1f(gridShader.getShaderUniformLocation("u_height"), window_height);
         
-        mouseEvent = false;
-    }
-    // Render model here
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        //new: for shaders
+        voxShader.bindShaderProgram();
+        glUniform1f(voxShader.getShaderUniformLocation("u_ka"), ka);
+        glUniform1f(voxShader.getShaderUniformLocation("u_kd"), kd);
+        glUniform1f(voxShader.getShaderUniformLocation("u_ks"), ks);
+        glUniform1f(voxShader.getShaderUniformLocation("u_shininess"), shininess);
 
-    switch (selectItem) {
-        case 0:
-            voxel.render();
-            break;
-        case 1:
-            obj.render();
-            break;
-        case 2:
-            toon.render();
-            break;
-        default:
-            break;
-    }
+        objShader.bindShaderProgram();
+        glUniform1f(objShader.getShaderUniformLocation("u_ka"), ka);
+        glUniform1f(objShader.getShaderUniformLocation("u_kd"), kd);
+        glUniform1f(objShader.getShaderUniformLocation("u_ks"), ks);
+        glUniform1f(objShader.getShaderUniformLocation("u_shininess"), shininess);
 
-    if(showGrid) grid.render();
- 
-    // Start the Dear ImGui frame
-    ImGui_ImplOpenGL3_NewFrame();
-    ImGui_ImplGlfw_NewFrame();
-    ImGui::NewFrame();
-
-    {
-        ImGui::Begin("Hello, CG");                       
-        
-        ImGui::SliderFloat3("Local Translate.", &localTrans[0], -100.0f, 100.0f);           
-        ImGui::SliderFloat3("Local Rotate.", &localRotate[0], -360.0f, 360.0f);
-        ImGui::SliderFloat3("Local Scale.", &localScale[0], 1.0f, 10.0f);
-        ImGui::SliderFloat3("Global Rotate.", &globalRotate[0], -360.0f, 360.0f);
-        ImGui::ListBox("Shading Type",&selectItem,selectable,IM_ARRAYSIZE(selectable));
-        ImGui::Checkbox("Grid", &showGrid);
-
-        if (selectItem==0) {
-            voxModel.localTranslate(localTrans[0], localTrans[1], localTrans[2]);
-            voxModel.localRotate(localRotate[0], localRotate[1], localRotate[2]);
-            voxModel.localScale(localScale[0], localScale[1], localScale[2]);
-            voxModel.globalRotate(globalRotate[0], globalRotate[1], globalRotate[2]);
+        //listen to mouse state
+        if (mouseEvent) {
+            camera.updateViewMatrix(mouseScroll, mouseMiddle_xoffset, mouseMiddle_yoffset, mouseRight_xoffset, mouseRight_yoffset);
+            
+            mouseEvent = false;
         }
-        
-        if (selectItem == 1 || selectItem == 2) {
-            objModel.localTranslate(localTrans[0], localTrans[1], localTrans[2]);
-            objModel.localRotate(localRotate[0], localRotate[1], localRotate[2]);
-            objModel.localScale(localScale[0], localScale[1], localScale[2]);
-            objModel.globalRotate(globalRotate[0], globalRotate[1], globalRotate[2]);
+        // Render model here
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        switch (selectItem) {
+            case 0:
+                voxel.render();
+                break;
+            case 1:
+                obj.render();
+                break;
+            case 2:
+                toon.render();
+                break;
+            default:
+                break;
         }
 
-        if (selectItem == 2) {
-           /**/
+        if(showGrid) grid.render();
+    
+        // Start the Dear ImGui frame
+        ImGui_ImplOpenGL3_NewFrame();
+        ImGui_ImplGlfw_NewFrame();
+        ImGui::NewFrame();
+
+        {
+            ImGui::Begin("Hello, CG");                       
+            
+            ImGui::SliderFloat3("Local Translate.", &localTrans[0], -100.0f, 100.0f);           
+            ImGui::SliderFloat3("Local Rotate.", &localRotate[0], -360.0f, 360.0f);
+            ImGui::SliderFloat3("Local Scale.", &localScale[0], 1.0f, 10.0f);
+            ImGui::SliderFloat3("Global Rotate.", &globalRotate[0], -360.0f, 360.0f);
+            ImGui::ListBox("Shading Type",&selectItem,selectable,IM_ARRAYSIZE(selectable));
+            ImGui::Checkbox("Grid", &showGrid);
+            //new: for shaders
+            ImGui::SliderFloat("ka (ambient)", &ka, 0.0f, 1.0f);
+            ImGui::SliderFloat("kd (diffuse)", &kd, 0.0f, 1.0f);
+            ImGui::SliderFloat("ks (specular)", &ks, 0.0f, 1.0f);
+            ImGui::SliderInt("Shininess coefficient", &shininess, 1, 200);
+
+            if (selectItem==0) {
+                voxModel.localTranslate(localTrans[0], localTrans[1], localTrans[2]);
+                voxModel.localRotate(localRotate[0], localRotate[1], localRotate[2]);
+                voxModel.localScale(localScale[0], localScale[1], localScale[2]);
+                voxModel.globalRotate(globalRotate[0], globalRotate[1], globalRotate[2]);
+            }
+            
+            if (selectItem == 1 || selectItem == 2) {
+                objModel.localTranslate(localTrans[0], localTrans[1], localTrans[2]);
+                objModel.localRotate(localRotate[0], localRotate[1], localRotate[2]);
+                objModel.localScale(localScale[0], localScale[1], localScale[2]);
+                objModel.globalRotate(globalRotate[0], globalRotate[1], globalRotate[2]);
+            }
+
+            if (selectItem == 2) {
+            /**/
+            }
+
+            ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+            ImGui::End();
         }
 
-        ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
-        ImGui::End();
-    }
+        //Imgui Rendering
+        ImGui::Render();
+        int display_w, display_h;
+        
+        glfwGetFramebufferSize(window, &display_w, &display_h);
+        
+        glViewport(0, 0, display_w, display_h);
+        window_width = display_w;
+        window_height = display_h;
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
-    //Imgui Rendering
-    ImGui::Render();
-    int display_w, display_h;
-    
-    glfwGetFramebufferSize(window, &display_w, &display_h);
-    
-    glViewport(0, 0, display_w, display_h);
-    window_width = display_w;
-    window_height = display_h;
-    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+        // Swap front and back buffers
+        glfwSwapBuffers(window);
 
-    // Swap front and back buffers
-    glfwSwapBuffers(window);
+        // Poll for and process events
+        glfwPollEvents();
 
-    // Poll for and process events
-    glfwPollEvents();
+        //Limit framerate
+        while (glfwGetTime() < lasttime + 1.0 / TARGET_FPS) {
+            // TODO: Put the thread to sleep, yield, or simply do nothing
 
-    //Limit framerate
-    while (glfwGetTime() < lasttime + 1.0 / TARGET_FPS) {
-        // TODO: Put the thread to sleep, yield, or simply do nothing
+        }
+        lasttime += 1.0 / TARGET_FPS;
+    }//end while
 
-    }
-    lasttime += 1.0 / TARGET_FPS;
-    
-  }
+    // Cleanup
+    ImGui_ImplOpenGL3_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
 
-  // Cleanup
-  ImGui_ImplOpenGL3_Shutdown();
-  ImGui_ImplGlfw_Shutdown();
-  ImGui::DestroyContext();
-
-  glfwTerminate();
-  return 0;
+    glfwTerminate();
+    return 0;
 }
